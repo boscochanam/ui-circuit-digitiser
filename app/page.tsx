@@ -4,6 +4,13 @@ import { useState } from "react";
 import ImageUploader from "../components/ImageUploader";
 import CircuitCanvas from "../components/CircuitCanvas";
 import JsonEditor from "../components/JsonEditor";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 // Component emoji mapping
 const componentEmojis: Record<string, string> = {
@@ -17,12 +24,24 @@ const componentEmojis: Record<string, string> = {
     default: "⚡",
 };
 
+interface DetectionSteps {
+    original: string;
+    components: string;
+    masked: string;
+    lines: string;
+}
+
 export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
     const [circuitData, setCircuitData] = useState(null);
     const [originalImage, setOriginalImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [globalScaleFactor, setGlobalScaleFactor] = useState(8000);
+    const [detectionSteps, setDetectionSteps] = useState<DetectionSteps | null>(
+        null
+    );
+    const [selectedView, setSelectedView] =
+        useState<keyof DetectionSteps>("original");
 
     const handleImageUpload = async (file: File) => {
         setIsLoading(true);
@@ -31,27 +50,65 @@ export default function Home() {
         formData.append("file", file);
 
         try {
+            // First get circuit analysis
             const response = await fetch(
                 "http://localhost:8000/analyze-circuit",
                 {
                     method: "POST",
                     body: formData,
-                    headers: {
-                        Accept: "application/json",
-                    },
                 }
             );
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            if (!response.ok)
+                throw new Error(
+                    `Circuit analysis failed: ${response.statusText}`
+                );
             const data = await response.json();
+
             if (!data.devices || !data.wires) {
-                throw new Error("Invalid data format received from server");
+                throw new Error(
+                    "Invalid circuit data format received from server"
+                );
             }
             setCircuitData(data);
             setOriginalImage(URL.createObjectURL(file));
+
+            // Then get detection steps
+            try {
+                const detectResponse = await fetch(
+                    "http://localhost:8000/detect",
+                    {
+                        method: "POST",
+                        body: formData,
+                    }
+                );
+
+                if (!detectResponse.ok) {
+                    throw new Error(
+                        `Detection steps failed: ${detectResponse.statusText}`
+                    );
+                }
+
+                const stepsData = await detectResponse.json();
+                if (
+                    !stepsData.components ||
+                    !stepsData.masked ||
+                    !stepsData.lines
+                ) {
+                    throw new Error("Invalid detection steps data");
+                }
+
+                setDetectionSteps({
+                    original: URL.createObjectURL(file),
+                    components: stepsData.components,
+                    masked: stepsData.masked,
+                    lines: stepsData.lines,
+                });
+            } catch (detectError) {
+                console.error("Detection steps error:", detectError);
+                setError(`Detection steps failed: ${detectError.message}`);
+                // Don't rethrow - allow circuit visualization to still work
+            }
         } catch (error) {
             console.error("Error:", error);
             setError(
@@ -59,6 +116,8 @@ export default function Home() {
                     ? error.message
                     : "An unknown error occurred"
             );
+            setCircuitData(null);
+            setDetectionSteps(null);
         } finally {
             setIsLoading(false);
         }
@@ -93,6 +152,47 @@ export default function Home() {
                                 </div>
                             )}
                         </div>
+
+                        {detectionSteps && (
+                            <div className="bg-[#2c2c2e] rounded-xl shadow-md p-6 border border-[#3a3a3c] transition-colors">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-semibold text-[#5ac8fa]">
+                                        Detection Steps
+                                    </h2>
+                                    <Select
+                                        value={selectedView}
+                                        onValueChange={(value) =>
+                                            setSelectedView(
+                                                value as keyof DetectionSteps
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger className="w-[180px] bg-[#1c1c1e] border-[#3a3a3c]">
+                                            <SelectValue placeholder="Select view" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="original">
+                                                Original Image
+                                            </SelectItem>
+                                            <SelectItem value="components">
+                                                Component Detection
+                                            </SelectItem>
+                                            <SelectItem value="masked">
+                                                Masked Image
+                                            </SelectItem>
+                                            <SelectItem value="lines">
+                                                Line Detection
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <img
+                                    src={detectionSteps[selectedView]}
+                                    alt={`${selectedView} view`}
+                                    className="max-w-full rounded-lg border border-[#3a3a3c]"
+                                />
+                            </div>
+                        )}
 
                         {originalImage && (
                             <div className="bg-[#2c2c2e] rounded-xl shadow-md p-6 border border-[#3a3a3c] transition-colors">

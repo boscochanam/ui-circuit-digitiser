@@ -47,8 +47,6 @@ const CircuitCanvas: React.FC<Props> = ({
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
-    const [flipX, setFlipX] = useState(false);
-    const [flipZ, setFlipZ] = useState(false);
     const [rotation, setRotation] = useState(0); // 0, 90, 180, 270 degrees
     const [globalScaleFactor, setGlobalScaleFactor] =
         useState(initialScaleFactor);
@@ -309,16 +307,7 @@ const CircuitCanvas: React.FC<Props> = ({
 
             ctx.restore();
         },
-        [
-            scale,
-            pan,
-            deviceColors,
-            globalScaleFactor,
-            flipX,
-            flipZ,
-            rotation,
-            componentEmojis,
-        ]
+        [scale, pan, deviceColors, globalScaleFactor, rotation, componentEmojis]
     );
 
     const drawWire = useCallback(
@@ -352,14 +341,6 @@ const CircuitCanvas: React.FC<Props> = ({
             let startScaledZ = startPos.z * globalScaleFactor;
             let endScaledX = endPos.x * globalScaleFactor;
             let endScaledZ = endPos.z * globalScaleFactor;
-            if (flipX) {
-                startScaledX *= -1;
-                endScaledX *= -1;
-            }
-            if (flipZ) {
-                startScaledZ *= -1;
-                endScaledZ *= -1;
-            }
 
             // Apply rotation transformation
             let screenStartX, screenStartY, screenEndX, screenEndY;
@@ -403,7 +384,7 @@ const CircuitCanvas: React.FC<Props> = ({
             ctx.lineWidth = 2 * scale;
             ctx.stroke();
         },
-        [scale, pan, globalScaleFactor, flipX, flipZ, rotation]
+        [scale, pan, globalScaleFactor, rotation]
     );
 
     const draw = useCallback(() => {

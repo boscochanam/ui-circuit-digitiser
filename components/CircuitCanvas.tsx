@@ -16,6 +16,8 @@ interface Device {
     position: Position;
     rotation: number;
     deviceType: string;
+    width?: number; // Add width property
+    height?: number; // Add height property
 }
 
 interface Wire {
@@ -204,12 +206,18 @@ const CircuitCanvas: React.FC<Props> = ({
                 deviceColors[device.deviceType.toLowerCase()] ||
                 deviceColors.default;
 
-            const size = (isJunction ? 20 : 80) * scale; // Increased base size
+            // Use device dimensions if available, otherwise use defaults
+            const baseSize = isJunction ? 20 : 80;
 
             if (!isJunction) {
-                // Increase box size to accommodate text
-                const boxWidth = size * 2.5; // Wider box
-                const boxHeight = size * 1.2; // Slightly taller box
+                // Calculate box dimensions based on device width and height if available
+                const aspectRatio =
+                    device.width && device.height
+                        ? device.height / device.width
+                        : 2.5; // Default aspect ratio if dimensions not provided
+
+                const boxHeight = baseSize * scale;
+                const boxWidth = boxHeight * aspectRatio;
                 const radius = 12 * scale;
 
                 // Draw background with shadow
@@ -217,7 +225,7 @@ const CircuitCanvas: React.FC<Props> = ({
                 ctx.shadowBlur = 10 * scale;
                 ctx.shadowOffsetY = 4 * scale;
 
-                // Draw rounded rectangle
+                // Draw rounded rectangle with proper aspect ratio
                 ctx.beginPath();
                 ctx.moveTo(-boxWidth / 2 + radius, -boxHeight / 2);
                 ctx.lineTo(boxWidth / 2 - radius, -boxHeight / 2);
@@ -295,9 +303,10 @@ const CircuitCanvas: React.FC<Props> = ({
                 ctx.textBaseline = "middle";
                 ctx.fillText(text, 0, 0);
             } else {
-                // Draw junction as a simple circle
+                // Draw junction as a simple circle with baseSize
+                const junctionSize = 20 * scale; // Define size for junction
                 ctx.beginPath();
-                ctx.arc(0, 0, size / 4, 0, Math.PI * 2);
+                ctx.arc(0, 0, junctionSize / 4, 0, Math.PI * 2);
                 ctx.fillStyle = colors.fill;
                 ctx.fill();
                 ctx.strokeStyle = colors.stroke;
